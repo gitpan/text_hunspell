@@ -1,0 +1,91 @@
+1. IN affixmgr.cxx change:
+---------------------------------
+if (fieldnum != basefieldnum) 
+          fprintf(stderr, "warning - bad field number:\n%s\n", nl);
+      } else {
+---------------------------------
+to
+---------------------------------
+if (fieldnum != basefieldnum) 
+          //fprintf(stderr, "warning - bad field number:\n%s\n", nl)
+	  ;
+      } else {
+---------------------------------
+2. Apply makeso.sh (make libhunspell.so library):
+----------------------------------------------------
+g++ -I. -fPIC -g -c -Wall suggestmgr.cxx
+g++ -I. -fPIC -g -c -Wall affentry.cxx
+g++ -I. -fPIC -g -c -Wall csutil.cxx
+g++ -I. -fPIC -g -c -Wall suggestmgr.cxx
+g++ -I. -fPIC -g -c -Wall hashmgr.cxx
+g++ -I. -fPIC -g -c -Wall hunspell.cxx
+g++ -I. -fPIC -g -c -Wall suggestmgr.cxx
+g++ -I. -fPIC -g -c -Wall affixmgr.cxx
+g++ -I. -fPIC -g -c -Wall dictmgr.cxx
+g++ -I. -fPIC -g -c -Wall utf_info.cxx
+g++ -shared -Wl,-soname,libhunspell.so.1 -o libhunspell.so.1.0.1 affentry.o  csutil.o   hashmgr.o   suggestmgr.o affixmgr.o  dictmgr.o  hunspell.o  -lc
+# cp libhunspell.so.1.0.1 /usr/local/lib
+# to link (otherwise ld does not find .so):
+# ln -s /usr/local/lib/libhunspell.so.1.0.1 /usr/local/lib/libhunspell.so
+# to execute: (otherwise .so library not found):
+# ln -s /usr/local/lib/libhunspell.so.1.0.1 /usr/lib/libhunspell.so.1
+# ls -l /lib/libhu*
+# ls -l /usr/lib/libhu*
+# ls -l /usr/local/lib/libhu*
+----------------------------------------------------
+3. Install perl-devel
+4. install Text::Hunspell
+5. Use Text::Hunspell like:
+---------------------------------------------------------------
+#!/usr/bin/perl -w
+# first install perl-devel
+#  then install Text::Hunspell
+#
+use Text::Hunspell;
+use Data::Dumper;
+    my $speller = Text::Hunspell->new("/home/en/tyuk/dtest/qt/examples/richedit2/lang/magyar.aff", "/home/en/tyuk/dtest/qt/examples/richedit2/lang/magyar.dic");
+
+    die unless $speller;
+
+
+    # Set some options
+    my $word = "lótól";
+    my $word1 = "lóotól";
+    my $misspelled = "lóo";
+
+    # check a word
+    print $speller->check( $word )
+          ? "$word found\n"
+          : "$word not found!\n";
+    print $speller->check( $word1 )
+          ? "$word1 found\n"
+          : "$word1 not found!\n";
+
+    # lookup up words
+    my @suggestions;
+    @suggestions = $speller->suggest( $misspelled );
+    print Data::Dumper::Dumper( \@suggestions ); 
+
+    $speller->delete($speller);
+-------------------------------------------------------
+
+6. Result:
+------------------------------------------------
+[en@noname aspell]$ perl testhun.pl
+lótól found
+lóotól not found!
+$VAR1 = [
+          'ló',
+          'lót',
+          'lós',
+          'lóz',
+          'lón',
+          'lóg',
+          'lók',
+          'lói',
+          'lóé',
+          'lód',
+          'lóm'
+        ];
+[en@noname aspell]$        
+---------------------------------------------------
