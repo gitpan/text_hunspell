@@ -13,5 +13,5 @@ WriteMakefile(
      PREREQ_PM     => {}, # e.g., Module::Name => 1.1
     'XSOPT'             => '-C++',
     'TYPEMAPS'          => ['perlobject.map', 'typemap' ],
-    test => {'TESTS'     =>'t/test1.pl'},
+    test => {'TESTS'     =>'t/test.pl'},
 );

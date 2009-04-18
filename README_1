@@ -8,17 +8,32 @@
 #
 use Text::Hunspell;
 use Data::Dumper;
-    my $speller = Text::Hunspell->new("/home/en/tyuk/dtest/qt/examples/richedit2/lang/magyar.aff", "/home/en/tyuk/dtest/qt/examples/richedit2/lang/magyar.dic");
+    my $curDir;
+    $currDir = `pwd`;
+    chomp $currDir;
+   my $affloc = "$currDir/t/test.aff";
+   my $dicloc = "$currDir/t/test.dic";
+   if(!(-e $affloc) || !(-e $dicloc)){
+     $affloc = "$currDir/test.aff";
+     $dicloc = "$currDir/test.dic";
+   }
+   if(!(-e $affloc) || !(-e $dicloc)){
+      die "test.aff or test.dic not found- dieing\n";
+   }
+   my $speller = Text::Hunspell->new($affloc, $dicloc);
 
     die unless $speller;
 
+    # Set some words
+    my $word = "l√≥t√≥l";
+    my $word1 = "l√≥ot√≥l";
+    my $misspelled = "l√≥o";
+    my $stem = "l√≥";
+    my $stem1 = "haj";
+    my $count, $i;
+    my $res;
 
-    # Set some options
-    my $word = "lÛtÛl";
-    my $word1 = "lÛotÛl";
-    my $misspelled = "lÛo";
-
-    # check a word
+    # check  word & word1
     print $speller->check( $word )
           ? "$word found\n"
           : "$word not found!\n";
@@ -26,31 +41,94 @@ use Data::Dumper;
           ? "$word1 found\n"
           : "$word1 not found!\n";
 
-    # lookup up words
+    # lookup correction for bad word
     my @suggestions;
     @suggestions = $speller->suggest( $misspelled );
+    print $misspelled.": Suggest result\n";
     print Data::Dumper::Dumper( \@suggestions ); 
+
+    # check morphological analysis for ABL class word
+    @suggestions = $speller->analyze($word);
+    print $word.": Analyze result\n";
+    print Data::Dumper::Dumper( \@suggestions ); 
+
+    # check morphological analysis for stem class word
+    @suggestions = $speller->analyze($stem);
+    print $stem.": Analyze result\n";
+    print Data::Dumper::Dumper( \@suggestions ); 
+ 
+    # Test here generator for morphological modification (NOM->ACC)
+    @suggestions = $speller->analyze($stem);
+    $count = @suggestions;
+    print "cnt:".$count." element count:".$#suggestions." ".$stem.": Analyze result\n";
+    print Data::Dumper::Dumper( \@suggestions ); 
+
+    # modify analyze output for required class (ACC)
+    for($i = 0; $i < $count; $i++){
+       $res = @suggestions[$i];
+       $res =~ s/NOM/ACC/g;
+       print "res:".$res."\n";
+       @suggestions[$i] = $res;
+    }
+    print Data::Dumper::Dumper( \@suggestions ); 
+    # generate ACC class of stem
+    @suggestions = $speller->generate2($stem, \@suggestions);
+    print "generate2 result\n";
+    print Data::Dumper::Dumper( \@suggestions ); 
+    # end of generator for morphological modification (NOM->ACC) test 
+    
+    # stem test
+    @suggestions = $speller->stem($word);
+    print $word.": Stem result\n";
+    print Data::Dumper::Dumper( \@suggestions ); 
+ 
+    # test generator for mrphological modification, modify $stem like $word
+    @suggestions = $speller->generate($stem, $word);
+    print $stem." ".$word.": Generate result\n";
+    print Data::Dumper::Dumper( \@suggestions ); 
+
 
     $speller->delete($speller);
 -------------------------------------------------------
 
 4. Result:
 ------------------------------------------------
-[en@noname aspell]$ perl testhun.pl
-lÛtÛl found
-lÛotÛl not found!
+[en@noname aspell]$ perl test.pl
+l√≥t√≥l found
+l√≥ot√≥l not found!
+l√≥o: Suggest result
 $VAR1 = [
-          'lÛ',
-          'lÛt',
-          'lÛs',
-          'lÛz',
-          'lÛn',
-          'lÛg',
-          'lÛk',
-          'lÛi',
-          'lÛÈ',
-          'lÛd',
-          'lÛm'
+          'l√≥i',
+          'l√≥',
+          'l√≥t'
+        ];
+l√≥t√≥l: Analyze result
+$VAR1 = [
+          ' st:l√≥ po:noun ts:NOM al:lovak is:ABL'
+        ];
+l√≥: Analyze result
+$VAR1 = [
+          ' st:l√≥ po:noun ts:NOM al:lovak'
+        ];
+cnt:1 element count:0 l√≥: Analyze result
+$VAR1 = [
+          ' st:l√≥ po:noun ts:NOM al:lovak'
+        ];
+res: st:l√≥ po:noun ts:ACC al:lovak
+$VAR1 = [
+          ' st:l√≥ po:noun ts:ACC al:lovak'
+        ];
+generate2 result
+$VAR1 = [
+          'l√≥t'
+        ];
+l√≥t√≥l: Stem result
+$VAR1 = [
+          'l√≥'
+        ];
+l√≥ l√≥t√≥l: Generate result
+$VAR1 = [
+          'l√≥t√≥l'
         ];
 [en@noname aspell]$        
 ---------------------------------------------------

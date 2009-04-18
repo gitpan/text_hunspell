@@ -1,13 +1,14 @@
-#ifndef _HASHMGR_HXX_
-#define _HASHMGR_HXX_
-
 #ifndef _HTYPES_HXX_
 #define _HTYPES_HXX_
 
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
+#include <time.h>
 
+
+#define MAXCONDLEN      20
+#define MAXCONDLEN_1    (MAXCONDLEN - sizeof(char *))
 
 #define MAXDELEN    256
 
@@ -15,6 +16,14 @@
 
 #define ROTATE(v,q) \
    (v) = ((v) << (q)) | (((v) >> (32 - q)) & ((1 << (q))-1));
+
+// hentry options
+#define H_OPT        (1 << 0)
+#define H_OPT_ALIASM (1 << 1)
+#define H_OPT_PHON   (1 << 2)
+
+// see also csutil.hxx
+#define HENTRY_WORD(h) &(h->word)
 
 // approx. number  of user defined words
 #define USERWORD 1000
@@ -28,456 +37,82 @@
 		#define DLLEXPORT  __declspec( dllimport )
 	#endif
 #endif
+#define MAXCONDLEN      20
+#define MAXCONDLEN_1    (MAXCONDLEN - sizeof(char *))
 
+#ifndef _HUNZIP_HXX_
+#define _HUNZIP_HXX_
+
+#define BUFSIZE  65536
+#define HZIP_EXTENSION ".hz"
+
+#define MSG_OPEN   "error: %s: cannot open\n"
+#define MSG_FORMAT "error: %s: not in hzip format\n"
+#define MSG_MEMORY "error: %s: missing memory\n"
+#define MSG_KEY    "error: %s: missing or bad password\n"
+
+struct bit {
+    unsigned char c[2];
+    int v[2];
+};
+
+class Hunzip
+{
+
+protected:
+    char * filename;
+    FILE * fin;
+    int bufsiz, lastbit, inc, inbits, outc;
+    struct bit * dec;        // code table
+    char in[BUFSIZE];        // input buffer
+    char out[BUFSIZE + 1];   // Huffman-decoded buffer
+    char line[BUFSIZE + 50]; // decoded line
+    int getcode(const char * key);
+    int getbuf();
+    int fail(const char * err, const char * par);
+    
+public:   
+    Hunzip(const char * filename, const char * key = NULL);
+    ~Hunzip();
+    const char * getline();
+};
+
+#endif
+
+#ifndef _FILEMGR_HXX_
+#define _FILEMGR_HXX_
+
+class FileMgr
+{
+protected:
+    FILE * fin;
+    Hunzip * hin;
+    char in[BUFSIZE + 50]; // input buffer
+    int fail(const char * err, const char * par);
+    int linenum;
+
+public:
+    FileMgr(const char * filename, const char * key = NULL);
+    ~FileMgr();
+    char * getline();
+    int getlinenum();
+};
+#endif
+
+
+#ifndef __WCHARHXX__
+#define __WCHARHXX__
 
 typedef struct {
     unsigned char l;
     unsigned char h;
 } w_char;
 
-
-struct hentry
-{
-  short    wlen;
-  short    alen;
-  char *   word;
-  unsigned short * astr;
-  struct   hentry * next;
-  struct   hentry * next_homonym;
-  char *   description;
-};
-
-#endif
-
-
-enum flag { FLAG_CHAR, FLAG_LONG, FLAG_NUM };
-
-class HashMgr
-{
-  int             tablesize;
-  struct hentry * tableptr;
-  int	          userword;
-  flag            flag_mode;
-  int             complexprefixes;
-  int             utf8;
-
-public:
-  HashMgr(const char * tpath, const char * apath);
-  ~HashMgr();
-
-  struct hentry * lookup(const char *) const;
-  int hash(const char *) const;
-  struct hentry * walk_hashtable(int & col, struct hentry * hp) const;
-
-  int put_word(const char * word, int wl, char * ap);
-  int put_word_pattern(const char * word, int wl, const char * pattern);
-  int decode_flags(unsigned short ** result, char * flags);
-  unsigned short        decode_flag(const char * flag);
-  char *                encode_flag(unsigned short flag);
-  
-private:
-  int load_tables(const char * tpath);
-  int add_word(const char * word, int wl, unsigned short * ap, int al, const char * desc);
-  int load_config(const char * affpath);
-
-};
-
-#endif 
-
-#ifndef _AFFIXMGR_HXX_
-#define _AFFIXMGR_HXX_
-
-#ifndef _ATYPES_HXX_
-#define _ATYPES_HXX_
-
-// HUNSTEM def.
-#define HUNSTEM
-
-#define SETSIZE         256
-#define CONTSIZE        65536
-#define MAXWORDLEN      100
-#define MAXWORDUTF8LEN  (MAXWORDLEN * 4)
-#define XPRODUCT        (1 << 0)
-
-enum {IN_CPD_NOT, IN_CPD_BEGIN, IN_CPD_END};
-
-#define MAXLNLEN        8192 * 4
-
-#define MAXCOMPOUND	10
-
-#define MAXACC          1000
-
-#define MISSING_DESCRIPTION "[<missing_description>]"
-
-#define FLAG unsigned short
-#define FLAG_NULL 0x00
-#define FREE_FLAG(a) a = 0
-
-#define TESTAFF( a, b , c ) flag_bsearch((unsigned short *) a, (unsigned short) b, c)
-
-struct affentry
-{
-   char * strip;
-   char * appnd;
-   short  stripl;
-   short  appndl;
-   short  numconds;
-   short  xpflg;
-   unsigned short aflag;
-   char   utf8;
-   union {
-   	char   base[SETSIZE];
-	struct {
-		char  ascii[SETSIZE/2];
-                char neg[8];
-                char all[8];
-                w_char * wchars[8];
-		int wlen[8];
-	} utf8;
-   } conds;
-   char *       morphcode;
-   unsigned short * contclass;
-   short        contclasslen;
-};
-
+// two character arrays
 struct replentry {
   char * pattern;
   char * pattern2;
 };
-
-struct mapentry {
-  char * set;
-  w_char * set_utf16;
-  int len;
-};
-
-struct guessword {
-  char * word;
-  bool allow;
-};
-
-#endif
-#ifndef _BASEAFF_HXX_
-#define _BASEAFF_HXX_
-
-class AffEntry
-{
-public:
-
-protected:
-       char *       appnd;
-       char *       strip;
-       short        appndl;
-       short        stripl;
-       short        numconds;
-       short        xpflg;
-       unsigned short aflag;
-       char         utf8;
-       union {
-   	 char   base[SETSIZE];
-	 struct {
-		char  ascii[SETSIZE/2];
-                char neg[8];
-                char all[8];
-                w_char * wchars[8];
-		int wlen[8];
-	 } utf8;
-       } conds;
-       char *       morphcode;
-       unsigned short * contclass;
-       short        contclasslen;
-};
-
-#endif
-
-
-#ifndef _HASHMGR_HXX_
-#define _HASHMGR_HXX_
-
-enum flag { FLAG_CHAR, FLAG_LONG, FLAG_NUM };
-
-class HashMgr
-{
-  int             tablesize;
-  struct hentry * tableptr;
-  int	          userword;
-  flag            flag_mode;
-  int             complexprefixes;
-  int             utf8;
-
-public:
-  HashMgr(const char * tpath, const char * apath);
-  ~HashMgr();
-
-  struct hentry * lookup(const char *) const;
-  int hash(const char *) const;
-  struct hentry * walk_hashtable(int & col, struct hentry * hp) const;
-
-  int put_word(const char * word, int wl, char * ap);
-  int put_word_pattern(const char * word, int wl, const char * pattern);
-  int decode_flags(unsigned short ** result, char * flags);
-  unsigned short        decode_flag(const char * flag);
-  char *                encode_flag(unsigned short flag);
-  
-private:
-  int load_tables(const char * tpath);
-  int add_word(const char * word, int wl, unsigned short * ap, int al, const char * desc);
-  int load_config(const char * affpath);
-
-};
-
-#endif
-
-
-class AffixMgr
-{
-
-  AffEntry *          pStart[SETSIZE];
-  AffEntry *          sStart[SETSIZE];
-  AffEntry *          pFlag[CONTSIZE];
-  AffEntry *          sFlag[CONTSIZE];
-  HashMgr *           pHMgr;
-  char *              trystring;
-  char *              encoding;
-  int                 utf8;
-  struct unicode_info2 * utf_tbl;
-  int                 complexprefixes;
-  FLAG                compoundflag;  
-  FLAG                compoundbegin;
-  FLAG                compoundmiddle;
-  FLAG                compoundend;
-  FLAG                compoundroot;
-  FLAG                compoundforbidflag;
-  FLAG                compoundpermitflag;
-  int                 checkcompounddup;
-  int                 checkcompoundrep;
-  int                 checkcompoundtriple;
-  FLAG                forbiddenword;
-  FLAG                pseudoroot;
-  int                 cpdmin;
-  int                 numrep;
-  replentry *         reptable;
-  int                 nummap;
-  mapentry *          maptable;
-  int                 numcheckcpd;
-  replentry *         checkcpdtable;
-  int                 maxngramsugs;
-  int                 nosplitsugs;
-  int                 sugswithdots;
-  int                 cpdwordmax;
-  int                 cpdmaxsyllable;
-  char *              cpdvowels;
-  w_char *            cpdvowels_utf16;
-  int                 cpdvowels_utf16_len;
-  char *              cpdsyllablenum;
-  const char *        pfxappnd; // BUG: not stateless
-  const char *        sfxappnd; // BUG: not stateless
-  FLAG                sfxflag;  // BUG: not stateless
-  char *              derived;  // BUG: not stateless
-  AffEntry *          sfx;      // BUG: not stateless
-  AffEntry *          pfx;      // BUG: not stateless
-  int                 checknum;
-  char *              wordchars;
-  char *              version;
-  char *              lang;
-  int                 langnum;
-  FLAG                lemma_present;
-  FLAG                circumfix;
-  FLAG                onlyincompound;
-
-  int                 havecontclass; // boolean variable
-#ifndef NOT_SHORT_2BYTE
-  short               contclasses[CONTSIZE]; // flags of possible continuing classes (twofold affix)
-#endif
-  flag                flag_mode;
-
-public:
- 
-  AffixMgr(const char * affpath, HashMgr * ptr);
-  ~AffixMgr();
-  struct hentry *     affix_check(const char * word, int len,
-            const unsigned short needflag = (unsigned short) 0, char in_compound = IN_CPD_NOT);
-  struct hentry *     prefix_check(const char * word, int len,
-            char in_compound, const FLAG needflag = FLAG_NULL);
-  struct hentry *     prefix_check_twosfx(const char * word, int len,
-            char in_compound, const FLAG needflag = FLAG_NULL);
-  struct hentry *     suffix_check(const char * word, int len, int sfxopts, AffEntry* ppfx,
-			char ** wlst, int maxSug, int * ns, const FLAG cclass = FLAG_NULL,
-                        const FLAG needflag = FLAG_NULL, char in_compound = IN_CPD_NOT);
-  struct hentry *     suffix_check_twosfx(const char * word, int len,
-            int sfxopts, AffEntry* ppfx, const FLAG needflag = FLAG_NULL);
-
-  char * affix_check_morph(const char * word, int len,
-                    const FLAG needflag = FLAG_NULL, char in_compound = IN_CPD_NOT);
-  char * prefix_check_morph(const char * word, int len,
-                    char in_compound, const FLAG needflag = FLAG_NULL);
-  char * suffix_check_morph (const char * word, int len, int sfxopts, AffEntry * ppfx,
-            const FLAG cclass = FLAG_NULL, const FLAG needflag = FLAG_NULL, char in_compound = IN_CPD_NOT);
-
-  char * prefix_check_twosfx_morph(const char * word, int len,
-            char in_compound, const FLAG needflag = FLAG_NULL);
-  char * suffix_check_twosfx_morph(const char * word, int len,
-            int sfxopts, AffEntry * ppfx, const FLAG needflag = FLAG_NULL);
-
-  int                 expand_rootword(struct guessword * wlst, int maxn, const char * ts,
-                        int wl, const unsigned short * ap, unsigned short al, char * bad, int);
-
-  int                 get_syllable (const char * word, int wlen);
-  int                 repl_check(const char * word, int len);
-  int                 checkcpd_check(const char * word, int len);
-  int                 candidate_check(const char * word, int len);
-  struct hentry *     compound_check(const char * word, int len,
-                              int wordnum, int numsyllable, int maxwordnum, int hu_mov_rule,
-			      int * cmpdstemnum, int * cmpdstem);
-
-  int compound_check_morph(const char * word, int len,
-                              int wordnum, int numsyllable, int maxwordnum, int hu_mov_rule,
-                              char ** result, char * partresult);
-
-  struct hentry *     lookup(const char * word);
-  int                 get_numrep();
-  struct replentry *  get_reptable();
-  int                 get_nummap();
-  struct mapentry *   get_maptable();
-  char *              get_encoding();
-  int                 get_langnum();
-  struct unicode_info2 * get_utf_conv();
-  char *              get_try_string();
-  const char *        get_wordchars();
-  FLAG                get_compoundflag();
-  FLAG                get_compoundbegin();
-  FLAG                get_forbiddenword();
-  FLAG                get_pseudoroot();
-  FLAG                get_onlyincompound();
-  FLAG                get_compoundroot();
-  FLAG                get_lemma_present();
-  int                 get_checknum();
-  char *              get_possible_root();
-  const char *        get_prefix();
-  const char *        get_suffix();
-  const char *        get_derived();
-  const char *        get_version();
-  const int           have_contclass();
-  int                 get_utf8();
-  int                 get_complexprefixes();
-  char *              get_suffixed(char );
-  int                 get_maxngramsugs();
-  int                 get_nosplitsugs();
-  int                 get_sugswithdots(void);
-
-private:
-  int  parse_file(const char * affpath);
-  int  parse_try(char * line);
-  int  parse_set(char * line);
-  int  parse_flag(char * line, unsigned short * out, char * name);
-  int  parse_num(char * line, int * out, char * name);
-  int  parse_cpdflag(char * line);
-  int  parse_cpdforbid(char * line);
-  int  parse_forbid(char * line);
-  int  parse_cpdsyllable(char * line);
-  int  parse_syllablenum(char * line);
-  int  parse_reptable(char * line, FILE * af);
-  int  parse_maptable(char * line, FILE * af);
-  int  parse_checkcpdtable(char * line, FILE * af);
-  int  parse_affix(char * line, const char at, FILE * af);
-  int  parse_wordchars(char * line);
-  int  parse_lang(char * line);
-  int  parse_version(char * line);
-
-  void encodeit(struct affentry * ptr, char * cs);
-  int build_pfxtree(AffEntry* pfxptr);
-  int build_sfxtree(AffEntry* sfxptr);
-  int process_pfx_order();
-  int process_sfx_order();
-  AffEntry * process_pfx_in_order(AffEntry * ptr, AffEntry * nptr);
-  AffEntry * process_sfx_in_order(AffEntry * ptr, AffEntry * nptr);
-  int process_pfx_tree_to_list();
-  int process_sfx_tree_to_list();
-  void set_spec_utf8_encoding();
-  int redundant_condition(char, char * strip, int stripl, const char * cond, char *);
-};
-
-#endif
-
-#ifndef _SUGGESTMGR_HXX_
-#define _SUGGESTMGR_HXX_
-
-#define MAXSWL 100
-#define MAXSWUTF8L (MAXSWL * 4)
-#define MAX_ROOTS 50
-#define MAX_WORDS 200
-#define MAX_GUESS 200
-#define MAXNGRAMSUGS 3
-
-#define MINTIMER 500
-#define MAXPLUSTIMER 500
-
-#define NGRAM_IGNORE_LENGTH 0
-#define NGRAM_LONGER_WORSE  1
-#define NGRAM_ANY_MISMATCH  2
-
-enum { LCS_UP, LCS_LEFT, LCS_UPLEFT };
-
-class SuggestMgr
-{
-  char *          ctry;
-  int             ctryl;
-  w_char *        ctry_utf;
-
-  AffixMgr*       pAMgr;
-  int             maxSug;
-  struct cs_info * csconv;
-  struct unicode_info2 * utfconv;
-  int             utf8;
-  int             nosplitsugs;
-  int             maxngramsugs;
-  int             complexprefixes;
-
-
-public:
-  SuggestMgr(const char * tryme, int maxn, AffixMgr *aptr);
-  ~SuggestMgr();
-
-  int suggest(char*** slst, const char * word, int nsug);
-  int ngsuggest(char ** wlst, char * word, HashMgr* pHMgr);
-  int suggest_auto(char*** slst, const char * word, int nsug);
-  int suggest_stems(char*** slst, const char * word, int nsug);
-  int suggest_pos_stems(char*** slst, const char * word, int nsug);
-
-  char * suggest_morph(const char * word);
-  char * suggest_morph_for_spelling_error(const char * word);
-
-private:
-   int check(const char *, int, int, int *, time_t *);
-   int check_forbidden(const char *, int);
-
-   int replchars(char**, const char *, int, int);
-   int doubledsyllable(char**, const char *, int, int);
-   int forgotchar(char **, const char *, int, int);
-   int swapchar(char **, const char *, int, int);
-   int extrachar(char **, const char *, int, int);
-   int badchar(char **, const char *, int, int);
-   int twowords(char **, const char *, int, int);
-   int fixstems(char **, const char *, int);
-
-   int forgotchar_utf(char**, const w_char *, int wl, int, int);
-   int extrachar_utf(char**, const w_char *, int wl, int, int);
-   int badchar_utf(char **, const w_char *, int wl, int, int);
-   int swapchar_utf(char **, const w_char *, int wl, int, int);
-
-   int mapchars(char**, const char *, int, int);
-   int map_related(const char *, int, char ** wlst, int, const mapentry*, int, int *, time_t *);
-   int map_related_utf(w_char *, int, int, char ** wlst, int, const mapentry*, int, int *, time_t *);
-   int ngram(int n, char * s1, const char * s2, int uselen);
-   int mystrlen(const char * word);
-   int equalfirstletter(char * s1, const char * s2);
-   int commoncharacterpositions(char * s1, const char * s2, int * is_swap);
-   void bubblesort( char ** rwd, int * rsc, int n);
-   void lcs(const char * s, const char * s2, int * l1, int * l2, char ** result);
-   int lcslen(const char * s, const char* s2);
-
-};
-
 #endif
 
 #ifndef __CSUTILHXX__
@@ -606,6 +241,625 @@ void mkallsmall_utf(w_char * u, int nc, struct unicode_info2 * utfconv);
 
 #endif
 
+
+struct hentry
+{
+  unsigned char blen; // word length in bytes
+  unsigned char clen; // word length in characters (different for UTF-8 enc.)
+  short    alen;      // length of affix flag vector
+  unsigned short * astr;  // affix flag vector
+  struct   hentry * next; // next word with same hash code
+  struct   hentry * next_homonym; // next homonym word (with same hash code)
+  char     var;       // variable fields (only for special pronounciation yet)
+  char     word;      // variable-length word (8-bit or UTF-8 encoding)
+};
+
+#endif
+
+
+#ifndef _HASHMGR_HXX_
+#define _HASHMGR_HXX_
+enum flag { FLAG_CHAR, FLAG_LONG, FLAG_NUM, FLAG_UNI };
+
+class HashMgr
+{
+  int               tablesize;
+  struct hentry **  tableptr;
+  int               userword;
+  flag              flag_mode;
+  int               complexprefixes;
+  int               utf8;
+  unsigned short    forbiddenword;
+  int               langnum;
+  char *            enc;
+  char *            lang;
+  struct cs_info *  csconv;
+  char *            ignorechars;
+  unsigned short *  ignorechars_utf16;
+  int               ignorechars_utf16_len;
+  int               numaliasf; // flag vector `compression' with aliases
+  unsigned short ** aliasf;
+  unsigned short *  aliasflen;
+  int               numaliasm; // morphological desciption `compression' with aliases
+  char **           aliasm;
+
+
+public:
+  HashMgr(const char * tpath, const char * apath, const char * key = NULL);
+  ~HashMgr();
+
+  struct hentry * lookup(const char *) const;
+  int hash(const char *) const;
+  struct hentry * walk_hashtable(int & col, struct hentry * hp) const;
+
+  int add(const char * word);
+  int add_with_affix(const char * word, const char * pattern);
+  int remove(const char * word);
+  int decode_flags(unsigned short ** result, char * flags, FileMgr * af);
+  unsigned short        decode_flag(const char * flag);
+  char *                encode_flag(unsigned short flag);
+  int is_aliasf();
+  int get_aliasf(int index, unsigned short ** fvec, FileMgr * af);
+  int is_aliasm();
+  char * get_aliasm(int index);
+
+private:
+  int get_clen_and_captype(const char * word, int wbl, int * captype);
+  int load_tables(const char * tpath, const char * key);
+  int add_word(const char * word, int wbl, int wcl, unsigned short * ap,
+    int al, const char * desc, bool onlyupcase);
+  int load_config(const char * affpath, const char * key);
+  int parse_aliasf(char * line, FileMgr * af);
+  int add_hidden_capitalized_word(char * word, int wbl, int wcl,
+    unsigned short * flags, int al, char * dp, int captype);
+  int parse_aliasm(char * line, FileMgr * af);
+  int remove_forbidden_flag(const char * word);
+
+};
+
+#endif
+
+#ifndef _ATYPES_HXX_
+#define _ATYPES_HXX_
+
+// HUNSTEM def.
+#define HUNSTEM
+
+#define SETSIZE         256
+#define CONTSIZE        65536
+#define MAXWORDLEN      100
+#define MAXWORDUTF8LEN  (MAXWORDLEN * 4)
+#define XPRODUCT        (1 << 0)
+
+enum {IN_CPD_NOT, IN_CPD_BEGIN, IN_CPD_END};
+
+#define MAXLNLEN        8192 * 4
+
+#define MAXCOMPOUND	10
+
+#define MAXACC          1000
+
+#define MISSING_DESCRIPTION "[<missing_description>]"
+
+#define FLAG unsigned short
+#define FLAG_NULL 0x00
+#define FREE_FLAG(a) a = 0
+
+#define TESTAFF( a, b , c ) flag_bsearch((unsigned short *) a, (unsigned short) b, c)
+
+struct affentry
+{
+   char * strip;
+   char * appnd;
+   unsigned char stripl;
+   unsigned char appndl;
+   char  numconds;
+   char  opts;
+   unsigned short aflag;
+   unsigned short * contclass;
+   short        contclasslen;
+   union {
+     char conds[MAXCONDLEN];
+     struct {
+       char conds1[MAXCONDLEN_1];
+       char * conds2;
+     } l;
+   } c;
+   char *       morphcode;
+};
+
+struct guessword {
+  char * word;
+  bool allow;
+  char * orig;
+};
+
+struct mapentry {
+  char * set;
+  w_char * set_utf16;
+  int len;
+};
+
+struct flagentry {
+  FLAG * def;
+  int len;
+};
+
+struct patentry {
+  char * pattern;
+  char * pattern2;
+  char * pattern3;
+  FLAG cond;
+  FLAG cond2;
+};
+
+#endif
+#ifndef __PHONETHXX__
+#define __PHONETHXX__
+
+#define HASHSIZE          256
+#define MAXPHONETLEN      256
+#define MAXPHONETUTF8LEN  (MAXPHONETLEN * 4)
+
+struct phonetable {
+  char utf8;
+  cs_info * lang;
+  int num;
+  char * * rules;
+  int hash[HASHSIZE];
+};
+
+void init_phonet_hash(phonetable & parms);
+
+int phonet (const char * inword, char * target,
+              int len, phonetable & phone);
+#endif
+
+#ifndef _BASEAFF_HXX_
+#define _BASEAFF_HXX_
+
+class AffEntry
+{
+public:
+
+protected:
+    char *         appnd;
+    char *         strip;
+    unsigned char  appndl;
+    unsigned char  stripl;
+    char           numconds;
+    char           opts;
+    unsigned short aflag;
+    union {
+        char       conds[MAXCONDLEN];
+        struct {
+            char   conds1[MAXCONDLEN_1];
+            char * conds2;
+        } l;
+    } c;
+    char *           morphcode;
+    unsigned short * contclass;
+    short            contclasslen;
+};
+
+#endif
+
+
+#ifndef _HASHMGR_HXX_
+#define _HASHMGR_HXX_
+
+e
+enum flag { FLAG_CHAR, FLAG_LONG, FLAG_NUM, FLAG_UNI };
+
+class HashMgr
+{
+  int               tablesize;
+  struct hentry **  tableptr;
+  int               userword;
+  flag              flag_mode;
+  int               complexprefixes;
+  int               utf8;
+  unsigned short    forbiddenword;
+  int               langnum;
+  char *            enc;
+  char *            lang;
+  struct cs_info *  csconv;
+  char *            ignorechars;
+  unsigned short *  ignorechars_utf16;
+  int               ignorechars_utf16_len;
+  int               numaliasf; // flag vector `compression' with aliases
+  unsigned short ** aliasf;
+  unsigned short *  aliasflen;
+  int               numaliasm; // morphological desciption `compression' with aliases
+  char **           aliasm;
+
+
+public:
+  HashMgr(const char * tpath, const char * apath, const char * key = NULL);
+  ~HashMgr();
+
+  struct hentry * lookup(const char *) const;
+  int hash(const char *) const;
+  struct hentry * walk_hashtable(int & col, struct hentry * hp) const;
+
+  int add(const char * word);
+  int add_with_affix(const char * word, const char * pattern);
+  int remove(const char * word);
+  int decode_flags(unsigned short ** result, char * flags, FileMgr * af);
+  unsigned short        decode_flag(const char * flag);
+  char *                encode_flag(unsigned short flag);
+  int is_aliasf();
+  int get_aliasf(int index, unsigned short ** fvec, FileMgr * af);
+  int is_aliasm();
+  char * get_aliasm(int index);
+
+private:
+  int get_clen_and_captype(const char * word, int wbl, int * captype);
+  int load_tables(const char * tpath, const char * key);
+  int add_word(const char * word, int wbl, int wcl, unsigned short * ap,
+    int al, const char * desc, bool onlyupcase);
+  int load_config(const char * affpath, const char * key);
+  int parse_aliasf(char * line, FileMgr * af);
+  int add_hidden_capitalized_word(char * word, int wbl, int wcl,
+    unsigned short * flags, int al, char * dp, int captype);
+  int parse_aliasm(char * line, FileMgr * af);
+  int remove_forbidden_flag(const char * word);
+
+};
+
+#endif
+
+#ifndef _REPLIST_HXX_
+#define _REPLIST_HXX_
+
+class RepList
+{
+protected:
+    replentry ** dat;
+    int size;
+    int pos;
+
+public:
+    RepList(int n);
+    ~RepList();
+
+    int get_pos();
+    int add(char * pat1, char * pat2);
+    replentry * item(int n);
+    int near(const char * word);
+    int match(const char * word, int n);
+    int conv(const char * word, char * dest);
+};
+#endif
+
+
+#ifndef _AFFIXMGR_HXX_
+#define _AFFIXMGR_HXX_
+
+#define dupSFX        (1 << 0)
+#define dupPFX        (1 << 1)
+
+class AffixMgr
+{
+
+  AffEntry *          pStart[SETSIZE];
+  AffEntry *          sStart[SETSIZE];
+  AffEntry *          pFlag[SETSIZE];
+  AffEntry *          sFlag[SETSIZE];
+  HashMgr *           pHMgr;
+  HashMgr **          alldic;
+  int *               maxdic;
+  char *              keystring;
+  char *              trystring;
+  char *              encoding;
+  struct cs_info *    csconv;
+  int                 utf8;
+  int                 complexprefixes;
+  FLAG                compoundflag;
+  FLAG                compoundbegin;
+  FLAG                compoundmiddle;
+  FLAG                compoundend;
+  FLAG                compoundroot;
+  FLAG                compoundforbidflag;
+  FLAG                compoundpermitflag;
+  int                 checkcompounddup;
+  int                 checkcompoundrep;
+  int                 checkcompoundcase;
+  int                 checkcompoundtriple;
+  int                 simplifiedtriple;
+  FLAG                forbiddenword;
+  FLAG                nosuggest;
+  FLAG                needaffix;
+  int                 cpdmin;
+  int                 numrep;
+  replentry *         reptable;
+  RepList *           iconvtable;
+  RepList *           oconvtable;
+  int                 nummap;
+  mapentry *          maptable;
+  int                 numbreak;
+  char **             breaktable;
+  int                 numcheckcpd;
+  patentry *          checkcpdtable;
+  int                 simplifiedcpd;
+  int                 numdefcpd;
+  flagentry *         defcpdtable;
+  phonetable *        phone;
+  int                 maxngramsugs;
+  int                 nosplitsugs;
+  int                 sugswithdots;
+  int                 cpdwordmax;
+  int                 cpdmaxsyllable;
+  char *              cpdvowels;
+  w_char *            cpdvowels_utf16;
+  int                 cpdvowels_utf16_len;
+  char *              cpdsyllablenum;
+  const char *        pfxappnd; // BUG: not stateless
+  const char *        sfxappnd; // BUG: not stateless
+  FLAG                sfxflag;  // BUG: not stateless
+  char *              derived;  // BUG: not stateless
+  AffEntry *          sfx;      // BUG: not stateless
+  AffEntry *          pfx;      // BUG: not stateless
+  int                 checknum;
+  char *              wordchars;
+  unsigned short *    wordchars_utf16;
+  int                 wordchars_utf16_len;
+  char *              ignorechars;
+  unsigned short *    ignorechars_utf16;
+  int                 ignorechars_utf16_len;
+  char *              version;
+  char *              lang;
+  int                 langnum;
+  FLAG                lemma_present;
+  FLAG                circumfix;
+  FLAG                onlyincompound;
+  FLAG                keepcase;
+  FLAG                substandard;
+  int                 checksharps;
+  int                 fullstrip;
+
+  int                 havecontclass; // boolean variable
+  char                contclasses[CONTSIZE]; // flags of possible continuing classes (twofold affix)
+
+public:
+
+  AffixMgr(const char * affpath, HashMgr** ptr, int * md,
+    const char * key = NULL);
+  ~AffixMgr();
+  struct hentry *     affix_check(const char * word, int len,
+            const unsigned short needflag = (unsigned short) 0,
+            char in_compound = IN_CPD_NOT);
+  struct hentry *     prefix_check(const char * word, int len,
+            char in_compound, const FLAG needflag = FLAG_NULL);
+  inline int isSubset(const char * s1, const char * s2);
+  struct hentry *     prefix_check_twosfx(const char * word, int len,
+            char in_compound, const FLAG needflag = FLAG_NULL);
+  inline int isRevSubset(const char * s1, const char * end_of_s2, int len);
+  struct hentry *     suffix_check(const char * word, int len, int sfxopts,
+            AffEntry* ppfx, char ** wlst, int maxSug, int * ns,
+            const FLAG cclass = FLAG_NULL, const FLAG needflag = FLAG_NULL,
+            char in_compound = IN_CPD_NOT);
+  struct hentry *     suffix_check_twosfx(const char * word, int len,
+            int sfxopts, AffEntry* ppfx, const FLAG needflag = FLAG_NULL);
+
+  char * affix_check_morph(const char * word, int len,
+            const FLAG needflag = FLAG_NULL, char in_compound = IN_CPD_NOT);
+  char * prefix_check_morph(const char * word, int len,
+            char in_compound, const FLAG needflag = FLAG_NULL);
+  char * suffix_check_morph (const char * word, int len, int sfxopts,
+            AffEntry * ppfx, const FLAG cclass = FLAG_NULL,
+            const FLAG needflag = FLAG_NULL, char in_compound = IN_CPD_NOT);
+
+  char * prefix_check_twosfx_morph(const char * word, int len,
+            char in_compound, const FLAG needflag = FLAG_NULL);
+  char * suffix_check_twosfx_morph(const char * word, int len,
+            int sfxopts, AffEntry * ppfx, const FLAG needflag = FLAG_NULL);
+
+  char * morphgen(char * ts, int wl, const unsigned short * ap,
+            unsigned short al, char * morph, char * targetmorph, int level);
+
+  int    expand_rootword(struct guessword * wlst, int maxn, const char * ts,
+            int wl, const unsigned short * ap, unsigned short al, char * bad,
+            int, char *);
+
+  short       get_syllable (const char * word, int wlen);
+  int         cpdrep_check(const char * word, int len);
+  int         cpdpat_check(const char * word, int len, hentry * r1, hentry * r2);
+  int         defcpd_check(hentry *** words, short wnum, hentry * rv,
+                    hentry ** rwords, char all);
+  int         cpdcase_check(const char * word, int len);
+  inline int  candidate_check(const char * word, int len);
+  void        setcminmax(int * cmin, int * cmax, const char * word, int len);
+  struct hentry * compound_check(const char * word, int len, short wordnum,
+            short numsyllable, short maxwordnum, short wnum, hentry ** words,
+            char hu_mov_rule, char is_sug);
+
+  int compound_check_morph(const char * word, int len, short wordnum,
+            short numsyllable, short maxwordnum, short wnum, hentry ** words,
+            char hu_mov_rule, char ** result, char * partresult);
+
+  struct hentry * lookup(const char * word);
+  int                 get_numrep();
+  struct replentry *  get_reptable();
+  RepList *           get_iconvtable();
+  RepList *           get_oconvtable();
+  struct phonetable * get_phonetable();
+  int                 get_nummap();
+  struct mapentry *   get_maptable();
+  int                 get_numbreak();
+  char **             get_breaktable();
+  char *              get_encoding();
+  int                 get_langnum();
+  char *              get_key_string();
+  char *              get_try_string();
+  const char *        get_wordchars();
+  unsigned short *    get_wordchars_utf16(int * len);
+  char *              get_ignore();
+  unsigned short *    get_ignore_utf16(int * len);
+  int                 get_compound();
+  FLAG                get_compoundflag();
+  FLAG                get_compoundbegin();
+  FLAG                get_forbiddenword();
+  FLAG                get_nosuggest();
+  FLAG                get_needaffix();
+  FLAG                get_onlyincompound();
+  FLAG                get_compoundroot();
+  FLAG                get_lemma_present();
+  int                 get_checknum();
+  char *              get_possible_root();
+  const char *        get_prefix();
+  const char *        get_suffix();
+  const char *        get_derived();
+  const char *        get_version();
+  const int           have_contclass();
+  int                 get_utf8();
+  int                 get_complexprefixes();
+  char *              get_suffixed(char );
+  int                 get_maxngramsugs();
+  int                 get_nosplitsugs();
+  int                 get_sugswithdots(void);
+  FLAG                get_keepcase(void);
+  int                 get_checksharps(void);
+  char *              encode_flag(unsigned short aflag);
+  int                 get_fullstrip();
+
+private:
+  int  parse_file(const char * affpath, const char * key);
+  int  parse_flag(char * line, unsigned short * out, FileMgr * af);
+  int  parse_num(char * line, int * out, FileMgr * af);
+  int  parse_cpdsyllable(char * line, FileMgr * af);
+  int  parse_reptable(char * line, FileMgr * af);
+  int  parse_convtable(char * line, FileMgr * af, RepList ** rl, const char * keyword);
+  int  parse_phonetable(char * line, FileMgr * af);
+  int  parse_maptable(char * line, FileMgr * af);
+  int  parse_breaktable(char * line, FileMgr * af);
+  int  parse_checkcpdtable(char * line, FileMgr * af);
+  int  parse_defcpdtable(char * line, FileMgr * af);
+  int  parse_affix(char * line, const char at, FileMgr * af, char * dupflags);
+
+  void reverse_condition(char *);
+  void debugflag(char * result, unsigned short flag);
+  int condlen(char *);
+  int encodeit(struct affentry * ptr, char * cs);
+  int build_pfxtree(AffEntry* pfxptr);
+  int build_sfxtree(AffEntry* sfxptr);
+  int process_pfx_order();
+  int process_sfx_order();
+  AffEntry * process_pfx_in_order(AffEntry * ptr, AffEntry * nptr);
+  AffEntry * process_sfx_in_order(AffEntry * ptr, AffEntry * nptr);
+  int process_pfx_tree_to_list();
+  int process_sfx_tree_to_list();
+  int redundant_condition(char, char * strip, int stripl,
+      const char * cond, int);
+};
+
+#endif
+
+
+#ifndef _SUGGESTMGR_HXX_
+#define _SUGGESTMGR_HXX_
+
+#define MAXSWL 100
+#define MAXSWUTF8L (MAXSWL * 4)
+#define MAX_ROOTS 100
+#define MAX_WORDS 100
+#define MAX_GUESS 200
+#define MAXNGRAMSUGS 4
+#define MAXPHONSUGS 2
+
+// timelimit: max ~1/4 sec (process time on Linux) for a time consuming function
+#define TIMELIMIT (CLOCKS_PER_SEC >> 2)
+#define MINTIMER 100
+#define MAXPLUSTIMER 100
+
+#define NGRAM_LONGER_WORSE  (1 << 0)
+#define NGRAM_ANY_MISMATCH  (1 << 1)
+#define NGRAM_LOWERING      (1 << 2)
+
+#include <time.h>
+
+enum { LCS_UP, LCS_LEFT, LCS_UPLEFT };
+
+class SuggestMgr
+{
+  char *          ckey;
+  int             ckeyl;
+  w_char *        ckey_utf;
+
+  char *          ctry;
+  int             ctryl;
+  w_char *        ctry_utf;
+
+  AffixMgr*       pAMgr;
+  int             maxSug;
+  struct cs_info * csconv;
+  int             utf8;
+  int             langnum;
+  int             nosplitsugs;
+  int             maxngramsugs;
+  int             complexprefixes;
+
+
+public:
+  SuggestMgr(const char * tryme, int maxn, AffixMgr *aptr);
+  ~SuggestMgr();
+
+  int suggest(char*** slst, const char * word, int nsug, int * onlycmpdsug);
+  int ngsuggest(char ** wlst, char * word, int ns, HashMgr** pHMgr, int md);
+  int suggest_auto(char*** slst, const char * word, int nsug);
+  int suggest_stems(char*** slst, const char * word, int nsug);
+  int suggest_pos_stems(char*** slst, const char * word, int nsug);
+
+  char * suggest_morph(const char * word);
+  char * suggest_gen(char ** pl, int pln, char * pattern);
+  char * suggest_morph_for_spelling_error(const char * word);
+
+private:
+   int testsug(char** wlst, const char * candidate, int wl, int ns, int cpdsuggest,
+     int * timer, clock_t * timelimit);
+   int checkword(const char *, int, int, int *, clock_t *);
+   int check_forbidden(const char *, int);
+
+   int capchars(char **, const char *, int, int);
+   int replchars(char**, const char *, int, int);
+   int doubletwochars(char**, const char *, int, int);
+   int forgotchar(char **, const char *, int, int);
+   int swapchar(char **, const char *, int, int);
+   int longswapchar(char **, const char *, int, int);
+   int movechar(char **, const char *, int, int);
+   int extrachar(char **, const char *, int, int);
+   int badcharkey(char **, const char *, int, int);
+   int badchar(char **, const char *, int, int);
+   int twowords(char **, const char *, int, int);
+   int fixstems(char **, const char *, int);
+
+   int capchars_utf(char **, const w_char *, int wl, int, int);
+   int doubletwochars_utf(char**, const w_char *, int wl, int, int);
+   int forgotchar_utf(char**, const w_char *, int wl, int, int);
+   int extrachar_utf(char**, const w_char *, int wl, int, int);
+   int badcharkey_utf(char **, const w_char *, int wl, int, int);
+   int badchar_utf(char **, const w_char *, int wl, int, int);
+   int swapchar_utf(char **, const w_char *, int wl, int, int);
+   int longswapchar_utf(char **, const w_char *, int, int, int);
+   int movechar_utf(char **, const w_char *, int, int, int);
+
+   int mapchars(char**, const char *, int, int);
+   int map_related(const char *, int, char ** wlst, int, int, const mapentry*, int, int *, clock_t *);
+   int map_related_utf(w_char *, int, int, int, char ** wlst, int, const mapentry*, int, int *, clock_t *);
+   int ngram(int n, char * s1, const char * s2, int opt);
+   int mystrlen(const char * word);
+   int leftcommonsubstring(char * s1, const char * s2);
+   int commoncharacterpositions(char * s1, const char * s2, int * is_swap);
+   void bubblesort( char ** rwd, char ** rwd2, int * rsc, int n);
+   void lcs(const char * s, const char * s2, int * l1, int * l2, char ** result);
+   int lcslen(const char * s, const char* s2);
+   char * suggest_hentry_gen(hentry * rv, char * pattern);
+
+};
+
+#endif
+
+
 #ifndef _LANGNUM_HXX_
 #define _LANGNUM_HXX_
 
@@ -615,6 +869,7 @@ void mkallsmall_utf(w_char * u, int nc, struct unicode_info2 * utfconv);
 */
 
 enum {
+LANG_ar=96,
 LANG_az=100, // custom number
 LANG_bg=41,
 LANG_ca=37,
@@ -644,30 +899,43 @@ LANG_xx=999
 
 #endif
 
-#define NOCAP   0
-#define INITCAP 1
-#define ALLCAP  2
-#define HUHCAP  3
 
+#define  SPELL_COMPOUND  (1 << 0)
+#define  SPELL_FORBIDDEN (1 << 1)
+#define  SPELL_ALLCAP    (1 << 2)
+#define  SPELL_NOCAP     (1 << 3)
+#define  SPELL_INITCAP   (1 << 4)
+
+#define  SPELL_XML "<?xml?>"
+
+#define MAXDIC 20
 #define MAXSUGGESTION 15
 #define MAXSHARPS 5
-
-/*#ifdef W32
-#define DLLTEST2_API __declspec(dllexport)
-#endif*/
 
 #ifndef _MYSPELLMGR_HXX_
 #define _MYSPELLMGR_HXX_
 
-#ifdef W32
+#ifdef HUNSPELL_STATIC
+	#define DLLEXPORT
+#else
+	#ifdef HUNSPELL_EXPORTS
+		#define DLLEXPORT  __declspec( dllexport )
+	#else
+		#define DLLEXPORT  __declspec( dllimport )
+	#endif
+#endif
+
+#ifdef WIN32
 class DLLEXPORT Hunspell
 #else
 class Hunspell
 #endif
 {
   AffixMgr*       pAMgr;
-  HashMgr*        pHMgr;
+  HashMgr*        pHMgr[MAXDIC];
+  int             maxdic;
   SuggestMgr*     pSMgr;
+  char *          affixpath;
   char *          encoding;
   struct cs_info * csconv;
   int             langnum;
@@ -680,10 +948,12 @@ public:
   /* Hunspell(aff, dic) - constructor of Hunspell class
    * input: path of affix file and dictionary file
    */
-  
-  Hunspell(const char * affpath, const char * dpath);
 
+  Hunspell(const char * affpath, const char * dpath, const char * key = NULL);
   ~Hunspell();
+
+  /* load extra dictionaries (only dic files) */
+  int add_dic(const char * dpath, const char * key = NULL);
 
   /* spell(word) - spellcheck word
    * output: 0 = bad word, not 0 = good word
@@ -707,6 +977,10 @@ public:
 
   int suggest(char*** slst, const char * word);
 
+  /* deallocate suggestion lists */
+
+  void free_list(char *** slst, int n);
+
   char * get_dic_encoding();
 
  /* morphological functions */
@@ -722,8 +996,8 @@ public:
  /* stem(result, analysis, n) - get stems from a morph. analysis
   * example:
   * char ** result, result2;
-  * int n1 = analyze(result, "words");
-  * int n2 = stem(result2, result, n1);   
+  * int n1 = analyze(&result, "words");
+  * int n2 = stem(&result2, result, n1);   
   */
  
   int stem(char*** slst, char ** morph, int n);
@@ -736,7 +1010,7 @@ public:
   * example:
   * char ** result;
   * char * affix = "is:plural"; // description depends from dictionaries, too
-  * int n = generate(result, "word", &affix, 1);
+  * int n = generate(&result, "word", &affix, 1);
   * for (int i = 0; i < n; i++) printf("%s\n", result[i]);
   */
 
@@ -756,7 +1030,6 @@ public:
   int add_with_affix(const char * word, const char * example);
 
   /* remove word from the run-time dictionary */
-  /* NOTE: not implemented yet */
 
   int remove(const char * word);
 
@@ -797,9 +1070,16 @@ private:
    hentry * spellsharps(char * base, char *, int, int, char * tmp, int * info, char **root);
    int    is_keepcase(const hentry * rv);
    int    insert_sug(char ***slst, char * word, int ns);
-   char * cat_result(char * result, char * st);
+   void   cat_result(char * result, char * st);
    char * stem_description(const char * desc);
+   int    spellml(char*** slst, const char * word);
+   int    get_xml_par(char * dest, const char * par, int maxl);
+   const char * get_xml_pos(const char * s, const char * attr);
+   int    get_xml_list(char ***slst, char * list, const char * tag);
+   int    check_xml_par(const char * q, const char * attr, const char * value);
 
 };
 
+
 #endif
+

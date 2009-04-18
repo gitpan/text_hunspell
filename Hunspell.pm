@@ -52,6 +52,30 @@ Text::Hunspell - Perl interface to the GNU Hunspell library
     @suggestions = $speller->suggest( $misspelled );
     print Data::Dumper::Dumper( \@suggestions ); 
 
+    @suggestions = $speller->analyze($word);
+    print Data::Dumper::Dumper( \@suggestions ); 
+ 
+    @suggestions = $speller->stem($word);
+    print Data::Dumper::Dumper( \@suggestions ); 
+
+
+    # Test here generator for morphological modification (NOM->ACC)
+    @suggestions = $speller->analyze($stem);
+    $count = @suggestions;
+
+    # modify analyze output for required class (ACC)
+    for($i = 0; $i < $count; $i++){
+       $res = @suggestions[$i];
+       $res =~ s/NOM/ACC/g;
+       @suggestions[$i] = $res;
+    }
+    # generate ACC class of stem
+    @suggestions = $speller->generate2($stem, \@suggestions);
+    # end of generator for morphological modification (NOM->ACC) test 
+
+    # test generator for mrphological modification, modify $stem like $word
+    @suggestions = $speller->generate($stem, $word);
+
     # delete speller class
     $speller->delete($speller);
 
@@ -105,6 +129,22 @@ check the word. Passes back 1, if the word found, 0 otherwise.
 
 Passes back the list of suggestions for the misspelled word.
 
+=item $speller->analyze($word);
+
+Passes back the analyzis list for the word.
+
+=item $speller->stem($word);
+
+Passes back the stem list for the word.
+
+=item  $speller->generate2($stem, \@suggestions);
+
+Passes back morphologically modified stem as defined in @suggestions (got by analyzis)
+
+=item $speller->generate($stem, $word);
+
+Passes back morphologically modified stem like $word
+
 =item $string = $speller->delete($speller);
 
 deletes the speller class.
@@ -134,6 +174,7 @@ Please see:
     http://hunspell.sf.net
 for the dictionaries:
    http://lingucomponent.openoffice.org/spell_dic.html
+   http://magyarispell.sf.net for Hungarian dictionary
    
 
 =cut

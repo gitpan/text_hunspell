@@ -15,6 +15,12 @@ using namespace std;
 
 /* $Id: Hunspell.xs,v 1.5 2002/08/29 20:28:00 moseley Exp $ */
 
+static void * get_mortalspace ( size_t nbytes ) {
+  SV * mortal;
+  mortal = sv_2mortal( NEWSV(0, nbytes ) );
+  return (void *)SvPVX(mortal);
+}
+
 MODULE = Text::Hunspell        PACKAGE = Text::Hunspell
 
 PROTOTYPES: ENABLE
@@ -60,5 +66,75 @@ Hunspell::suggest( buf)
             PUSHs(sv_2mortal(newSVpv( wlsti[i] ,0 )));
 	    free(wlsti[i]);
 	}
+
+void 
+Hunspell::analyze( buf)
+    char *buf;
+    PREINIT:
+        char **wlsti;
+	int i, val;
+    PPCODE:
+        val = THIS->analyze(&wlsti, buf);
+	for (int i = 0; i < val; i++) {
+            PUSHs(sv_2mortal(newSVpv( wlsti[i] ,0 )));
+	    free(wlsti[i]);
+	}
+
+void 
+Hunspell::stem( buf)
+    char *buf;
+    PREINIT:
+        char **wlsti;
+	int i, val;
+    PPCODE:
+        val = THIS->stem(&wlsti, buf);
+	for (int i = 0; i < val; i++) {
+            PUSHs(sv_2mortal(newSVpv( wlsti[i] ,0 )));
+	    free(wlsti[i]);
+	}
+
+
+void 
+Hunspell::generate( buf, sample)
+    char *buf;
+    char *sample;
+    PREINIT:
+        char **wlsti;
+	int i, val;
+    PPCODE:
+        val = THIS->generate(&wlsti, buf, sample);
+	for (int i = 0; i < val; i++) {
+            PUSHs(sv_2mortal(newSVpv( wlsti[i] ,0 )));
+	    free(wlsti[i]);
+	}
+
+
+void 
+Hunspell::generate2( buf, avref)
+   AV * avref;
+   char *buf;
+  PREINIT:
+   char ** array;
+   char **wlsti;
+   int len;
+   SV ** elem;
+   int i, val;
+  PPCODE:
+   len = av_len( avref ) + 1;
+   /* First allocate some memory for the pointers */
+   array = (char **) get_mortalspace( len * sizeof( *array ));
+   /* Loop over each element copying pointers to the new array */
+   for (i=0; i<len; i++) {
+     elem = av_fetch( avref, i, 0 );
+     array[i] = SvPV( *elem, PL_na );
+   }
+   val = THIS->generate(&wlsti, buf, array,  len);
+   for (int i = 0; i < val; i++) {
+     PUSHs(sv_2mortal(newSVpv( wlsti[i] ,0 )));
+     free(wlsti[i]);
+  }
+
+
+
 
 

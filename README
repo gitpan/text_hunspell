@@ -1,4 +1,4 @@
-Text::Hunspell12 - Perl interface to the Hunspell library
+Text::Hunspell13 - Perl interface to the Hunspell library
 
 DESCRIPTION
 
@@ -11,10 +11,10 @@ See BUILD NOTES and CURRENT ISSUES below before reporting any bugs.
 
 This module has been built and passed all tests on the following platforms:
 
-    perl 5.8.7 on Linux, gcc version 4.0.1 
-    hunspell 1.2.1 or higher
+    perl 5.8.8 on Linux, gcc version 4.0.1 
+    hunspell 1.2.8 or higher
     Mandriva Linux 2006
-    Knoppix Linux
+    Knoppix Linux (Debian Linux)
 
 Please read SUPPORT below if you have trouble building Text::Hunspell.
 
@@ -87,7 +87,7 @@ Windows users see below.
     $ make test
     $ make install
 
-
+    Perl must have been buit with thread support in order to work with Text::Hunspell.
 
 WINDOWS USERS
 
@@ -220,7 +220,7 @@ and also having to copy libstdc++* to /usr/lib.  YMMV.
 
 Changes compared to Hunspell::text
 
-hunspell.h was modified, since classe Hunspell was heavily modified between 1.4.x and 1.2.1, among others methods spell and suggest got new parameters, that causes the function name to get modified from 
+hunspell.h was modified, since classe Hunspell was heavily modified between 1.2.8 and 1.4.x, among others methods spell and suggest got new parameters, that causes the function name to get modified from 
 U _ZN8Hunspell5spellEPKc
 to 
 U _ZN8Hunspell5spellEPKcPiPPc
